@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OmniGuard Intelligence Command Center</title>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #0b0e14; color: #ffffff; margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1a1f2c; padding-bottom: 15px; }
+        .status-active { color: #00ff88; font-weight: bold; animation: blink 2s infinite; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .card { background: #151a26; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #222b3e; }
+        .card h3 { margin: 0; font-size: 14px; color: #8a99ad; text-transform: uppercase; letter-spacing: 1px; }
+        .card .number { font-size: 36px; font-weight: bold; margin-top: 10px; color: #ff3333; }
+        #m-weapon { color: #ff9900; }
+        #m-helmet { color: #ffcc00; }
+        #m-plate { color: #00ff88; }
+        .dashboard-body { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: #151a26; padding: 20px; border-radius: 12px; border: 1px solid #222b3e; min-height: 300px; }
+        .panel h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #222b3e; padding-bottom: 10px; color: #8a99ad; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 12px; border-bottom: 1px solid #222b3e; font-size: 14px; }
+        th { color: #8a99ad; }
+        .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>OmniGuard Security Intelligence Dashboard</h1>
+        <div class="status-active">• System Status: Monitoring Active</div>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="card">
+            <h3>Violence / Fights</h3>
+            <div class="number" id="m-fight">0</div>
+        </div>
+        <div class="card">
+            <h3>Weapon Threats</h3>
+            <div class="number" id="m-weapon">0</div>
+        </div>
+        <div class="card">
+            <h3>Helmet Violations</h3>
+            <div class="number" id="m-helmet">0</div>
+        </div>
+        <div class="card">
+            <h3>Plates Tracked</h3>
+            <div class="number" id="m-plate">0</div>
+        </div>
+    </div>
+
+    <div class="dashboard-body">
+        <div class="panel">
+            <h2>Threat Distribution Chart</h2>
+            <div class="chart-container">
+                <canvas id="threatChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Live Activity Timeline</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Classification Incident</th>
+                    </tr>
+                </thead>
+                <tbody id="timeline-rows">
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #566573;">Awaiting incident telemetry stream...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Chart.js
+        const ctx = document.getElementById('threatChart').getContext('2d');
+        const threatChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Violence', 'Weapons', 'Helmets', 'Plates'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#ff3333', '#ff9900', '#ffcc00', '#00ff88'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#8a99ad' } } } }
+        });
+
+        // Background Data Fetcher Loop
+        async function fetchMetrics() {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/metrics");
+                if (!res.ok) throw new Error("HTTP connection unhealthy");
+                const data = await res.json();
+                
+                // Inject metrics directly into HTML targets safely
+                document.getElementById('m-fight').innerText = data.counts["Fight/Violence"] || 0;
+                document.getElementById('m-weapon').innerText = data.counts["Weapon Threat"] || 0;
+                document.getElementById('m-helmet').innerText = data.counts["Helmet Violation"] || 0;
+                document.getElementById('m-plate').innerText = data.counts["License Plate Tracked"] || 0;
+                
+                // Update graph elements
+                threatChart.data.datasets[0].data = [
+                    data.counts["Fight/Violence"] || 0,
+                    data.counts["Weapon Threat"] || 0,
+                    data.counts["Helmet Violation"] || 0,
+                    data.counts["License Plate Tracked"] || 0
+                ];
+                threatChart.update();
+                
+                // Build live table log rows dynamically
+                const timeline = document.getElementById('timeline-rows');
+                if (timeline && data.recent_logs && data.recent_logs.length > 0) {
+                    timeline.innerHTML = data.recent_logs.map(log => `
+                        <tr>
+                            <td>${log.timestamp}</td>
+                            <td><strong style="color: #ffaa00;">${log.type}</strong></td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (err) {
+                console.error("Data Sync Failure:", err);
+            }
+        }
+
+        // Run network refresh sequence immediately, then check every second
+        fetchMetrics();
+        setInterval(fetchMetrics, 1000);
+    </script>
+</body>
+</html>

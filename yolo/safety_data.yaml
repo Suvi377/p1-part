@@ -1,0 +1,8 @@
+path: ../datasets/safety_data
+train: images/train
+val: images/val
+
+names:
+  0: weapon
+  1: violence
+  2: sos_gesture

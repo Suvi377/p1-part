@@ -1,0 +1,89 @@
+import cv2
+import easyocr
+from ultralytics import YOLO
+
+# 1. Load the three distinct YOLO models
+print("Loading OmniGuard AI Models...")
+safety_model = YOLO('models/public_safety.pt')
+driver_model = YOLO('models/driver_safety.pt')
+plate_model = YOLO('models/anpr.pt')
+
+# Initialize the OCR reader for reading license plate text
+reader = easyocr.Reader(['en'])
+
+def process_threat(frame, x1, y1, x2, y2, threat_type):
+    """If a threat/violation is found, find the license plate and log it."""
+    print(f"⚠️ {threat_type.upper()} DETECTED! Triggering ANPR...")
+    
+    # Run the Number Plate model ONLY when a violation occurs
+    plate_results = plate_model(frame, conf=0.5, verbose=False)
+    
+    for r in plate_results:
+        for box in r.boxes:
+            px1, py1, px2, py2 = box.xyxy[0].int().tolist()
+            
+            # Crop the license plate from the image
+            plate_crop = frame[py1:py2, px1:px2]
+            
+            # Read the text on the plate using OCR
+            ocr_result = reader.readtext(plate_crop, detail=0)
+            plate_text = ocr_result[0] if ocr_result else "UNKNOWN PLATE"
+            
+            print(f"🚨 LOGGED: {threat_type} | Vehicle: {plate_text}")
+            
+            # Draw a RED box around the violator's plate
+            cv2.rectangle(frame, (px1, py1), (px2, py2), (0, 0, 255), 2)
+            cv2.putText(frame, f"VIOLATOR: {plate_text}", (px1, py1 - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            
+            # TODO: Call your alerts/sms.py here sending the plate_text and threat_type
+            # TODO: Insert record into database/smartcity.db
+
+    return frame
+
+def start_omniguard(video_source=0):
+    cap = cv2.VideoCapture(video_source)
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
+
+        threat_detected = False
+
+        # --- STEP 1: Scan for Public Safety Threats (e.g., weapon, violence) ---
+        safety_results = safety_model(frame, conf=0.6, verbose=False)
+        for r in safety_results:
+            for box in r.boxes:
+                cls_id = int(box.cls[0].item())
+                cls_name = safety_model.names[cls_id]
+                
+                if cls_name in ['weapon', 'violence', 'sos_gesture']:
+                    x1, y1, x2, y2 = box.xyxy[0].int().tolist()
+                    frame = process_threat(frame, x1, y1, x2, y2, f"Public Safety Threat: {cls_name}")
+                    threat_detected = True
+
+        # --- STEP 2: Scan for Driver Safety Violations ---
+        # Only run this if we aren't already dealing with a major public safety threat
+        if not threat_detected:
+            driver_results = driver_model(frame, conf=0.5, verbose=False)
+            for r in driver_results:
+                for box in r.boxes:
+                    cls_id = int(box.cls[0].item())
+                    cls_name = driver_model.names[cls_id]
+                    
+                    if cls_name in ['no_helmet', 'no_seatbelt']:
+                        x1, y1, x2, y2 = box.xyxy[0].int().tolist()
+                        frame = process_threat(frame, x1, y1, x2, y2, f"Traffic Violation: {cls_name}")
+
+        # Show the live feed
+        cv2.imshow("OmniGuard Integrated System", frame)
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    # Replace 0 with a video file name (e.g., 'test_video.mp4') to test on prerecorded footage
+    start_omniguard(0)

@@ -1,0 +1,8 @@
+path: ../datasets/driver_data  # dataset root dir
+train: images/train            # train images
+val: images/val                # validation images
+
+# Classes
+names:
+  0: no_helmet
+  1: no_seatbelt

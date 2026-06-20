@@ -1,0 +1,16 @@
+
+path: C:/Users/Suvidhi/Desktop/p1 part/weapon_detect
+train: train/images
+val: valid/images
+
+# Total number of classes across your entire OmniGuard project
+nc: 6 
+
+names:
+  0: bat
+  1: knife
+  2: handgun
+  3: fight     # Violence/physical combat actions
+  4: helmet    # Safety gear
+  5: license   # Vehicle license plates
+  
