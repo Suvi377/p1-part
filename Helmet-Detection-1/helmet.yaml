@@ -1,0 +1,9 @@
+# Replace YOUR_HELMET_DATASET_FOLDER with the true folder name!
+train: C:\Users\Suvidhi\Desktop\p1 part\Helmet-Detection-1\train\images
+val: C:\Users\Suvidhi\Desktop\p1 part\Helmet-Detection-1\valid\images
+
+# Number of classes
+nc: 1
+
+# Class names (Keep it lowercase to match your master script)
+names: ['helmet']

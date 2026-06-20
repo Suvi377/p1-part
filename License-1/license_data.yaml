@@ -1,0 +1,9 @@
+# Absolute paths to prevent Windows errors
+train: C:\Users\Suvidhi\Desktop\p1 part\License-1\test\images
+val: C:\Users\Suvidhi\Desktop\p1 part\License-1\valid\images
+
+# Number of classes
+nc: 1
+
+# Class names
+names: ['license_plate']
